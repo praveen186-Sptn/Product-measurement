@@ -5,23 +5,33 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/3.0.0/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <style>
-        video, canvas { width: 100%; max-width: 400px; }
-        button { margin-top: 10px; padding: 10px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: black; color: white; overflow: hidden; }
+        video { width: 100vw; height: 100vh; object-fit: cover; }
+        .controls { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        select, button { font-size: 18px; padding: 10px; width: 90%; max-width: 300px; }
+        #dimensions { position: absolute; bottom: 20px; background: rgba(0, 0, 0, 0.7); padding: 10px; font-size: 18px; text-align: center; width: 90%; border-radius: 10px; }
     </style>
 </head>
 <body>
-    <h2>AI Furniture Measurement</h2>
-    <video id="video" autoplay></video>
-    <button id="capture">Capture</button>
-    <canvas id="canvas"></canvas>
+    <div class="controls">
+        <label for="cameraSelect">Choose Camera:</label>
+        <select id="cameraSelect"></select>
+        <button id="capture">Capture</button>
+    </div>
+    
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
     <p id="dimensions">Detecting...</p>
 
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const captureButton = document.getElementById('capture');
+        const cameraSelect = document.getElementById('cameraSelect');
         const context = canvas.getContext('2d');
         let model;
+        let currentStream;
 
         // Load AI model
         async function loadModel() {
@@ -29,9 +39,42 @@
             console.log("AI Model Loaded!");
         }
 
-        // Access camera
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => { video.srcObject = stream; });
+        // Get available cameras and populate dropdown
+        async function getCameras() {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+            cameraSelect.innerHTML = "";
+            videoDevices.forEach((device, index) => {
+                const option = document.createElement("option");
+                option.value = device.deviceId;
+                option.text = `Camera ${index + 1}`;
+                cameraSelect.appendChild(option);
+            });
+
+            if (videoDevices.length > 0) {
+                startCamera(videoDevices[0].deviceId);
+            }
+        }
+
+        // Start the selected camera
+        async function startCamera(deviceId) {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: { deviceId: { exact: deviceId }, facingMode: "environment" }
+            };
+
+            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = currentStream;
+        }
+
+        // Change camera when selection changes
+        cameraSelect.addEventListener("change", () => {
+            startCamera(cameraSelect.value);
+        });
 
         // Capture Image and Detect Object
         captureButton.addEventListener('click', async () => {
@@ -43,11 +86,11 @@
             let detectedObject = predictions.find(p => 
                 p.class === "couch" || p.class === "bed" || p.class === "dining table"
             );
-            
+
             if (detectedObject) {
                 let widthPx = detectedObject.bbox[2];
                 let heightPx = detectedObject.bbox[3];
-                
+
                 // Assuming an A4 sheet is used for scaling (A4 height = 297mm)
                 let scaleFactor = 297 / heightPx;
 
@@ -63,7 +106,9 @@
             }
         });
 
+        // Initialize
         loadModel();
+        getCameras();
     </script>
 </body>
 </html>
