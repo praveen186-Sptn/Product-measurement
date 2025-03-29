@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>AI Product Measurement</title>
+    <title>AI Furniture Measurement</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/3.0.0/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <style>
         video, canvas { width: 100%; max-width: 400px; }
+        button { margin-top: 10px; padding: 10px; }
     </style>
 </head>
 <body>
-    <h2>Capture Product Image & Detect Dimensions</h2>
+    <h2>AI Furniture Measurement</h2>
     <video id="video" autoplay></video>
     <button id="capture">Capture</button>
     <canvas id="canvas"></canvas>
@@ -22,36 +23,43 @@
         const context = canvas.getContext('2d');
         let model;
 
+        // Load AI model
         async function loadModel() {
             model = await cocoSsd.load();
-            console.log("Model Loaded!");
+            console.log("AI Model Loaded!");
         }
 
+        // Access camera
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => { video.srcObject = stream; });
 
+        // Capture Image and Detect Object
         captureButton.addEventListener('click', async () => {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             
             const predictions = await model.detect(canvas);
-            let detectedObject = predictions.find(p => p.class === "bottle" || p.class === "box");
+            let detectedObject = predictions.find(p => 
+                p.class === "couch" || p.class === "bed" || p.class === "dining table"
+            );
             
             if (detectedObject) {
                 let widthPx = detectedObject.bbox[2];
                 let heightPx = detectedObject.bbox[3];
                 
-                // Assuming an A4 sheet is used for scaling
-                let scaleFactor = 297 / heightPx;  // A4 paper height = 297mm
-                
+                // Assuming an A4 sheet is used for scaling (A4 height = 297mm)
+                let scaleFactor = 297 / heightPx;
+
                 let realWidth = widthPx * scaleFactor;
                 let realHeight = heightPx * scaleFactor;
 
                 document.getElementById('dimensions').innerText = 
-                    `Width: ${realWidth.toFixed(2)} mm, Height: ${realHeight.toFixed(2)} mm`;
+                    `Detected: ${detectedObject.class} 
+                    Width: ${realWidth.toFixed(2)} mm, 
+                    Height: ${realHeight.toFixed(2)} mm`;
             } else {
-                document.getElementById('dimensions').innerText = "No product detected!";
+                document.getElementById('dimensions').innerText = "No furniture detected!";
             }
         });
 
